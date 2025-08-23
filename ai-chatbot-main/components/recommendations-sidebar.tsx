@@ -10,7 +10,7 @@ import {
   SidebarMenu,
 } from '@/components/ui/sidebar';
 import { SparklesIcon } from '@/components/icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const sampleRecommendations: string[] = [
   '주식 투자를 시작하려면 무엇부터 해야 하나요?',
@@ -30,22 +30,18 @@ export function RecommendationsSidebar({ sendMessage, messages }: Recommendation
   const router = useRouter();
   const [recommendedQuestions, setRecommendedQuestions] = useState<string[]>(sampleRecommendations);
   const [isLoading, setIsLoading] = useState(false);
+  const lastMessageLengthRef = useRef(0);
+  const lastMessageRoleRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchRecommendations = async () => {
       const lastMessage = messages[messages.length - 1];
 
-      // Initial state or if there's no last message, show samples and exit.
-      if (!lastMessage || messages.length <= 1) {
-        setRecommendedQuestions(sampleRecommendations);
+      if (!lastMessage || lastMessage.role !== 'assistant') {
         return;
       }
 
-      // Safely find the text part from the last message.
       const textPart = lastMessage.parts.find(part => part.type === 'text');
-
-      // If there's no text part or the text is empty, do not fetch.
-      // This prevents errors and unnecessary API calls during streaming.
       if (!textPart || typeof textPart.text !== 'string' || textPart.text.trim() === '') {
         return;
       }
@@ -70,20 +66,43 @@ export function RecommendationsSidebar({ sendMessage, messages }: Recommendation
         }
       } catch (error) {
         console.error('Failed to fetch recommendations:', error);
-        // On error, revert to sample questions.
         setRecommendedQuestions(sampleRecommendations);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Debounce API calls to avoid spamming during AI response streaming.
-    // This will wait for 500ms of inactivity before making the API call.
-    const debounceTimer = setTimeout(fetchRecommendations, 500);
+    const lastMessage = messages[messages.length - 1];
+    
+    if (!lastMessage) {
+      setRecommendedQuestions(sampleRecommendations);
+      return;
+    }
 
-    return () => {
-      clearTimeout(debounceTimer);
-    };
+    // Check if this is a new assistant message or if the message content has stabilized
+    const currentMessageLength = lastMessage.parts.reduce((total, part) => {
+      return total + (part.type === 'text' ? part.text.length : 0);
+    }, 0);
+
+    const isNewAssistantMessage = lastMessage.role === 'assistant' && 
+                                 lastMessageRoleRef.current !== 'assistant';
+    
+    const isMessageStabilized = lastMessage.role === 'assistant' && 
+                               lastMessageRoleRef.current === 'assistant' &&
+                               currentMessageLength === lastMessageLengthRef.current;
+
+    // Only fetch recommendations when:
+    // 1. A new assistant message starts, OR
+    // 2. The assistant message content has stabilized (no more streaming)
+    if (isNewAssistantMessage || isMessageStabilized) {
+      // Add a small delay to ensure the message is fully complete
+      const timer = setTimeout(fetchRecommendations, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    // Update refs for next comparison
+    lastMessageLengthRef.current = currentMessageLength;
+    lastMessageRoleRef.current = lastMessage.role;
   }, [messages]);
 
   return (
