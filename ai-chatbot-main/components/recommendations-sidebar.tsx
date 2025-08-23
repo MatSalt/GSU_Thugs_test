@@ -1,5 +1,8 @@
 'use client';
 
+import { useParams, useRouter } from 'next/navigation';
+import type { UseChatHelpers } from '@ai-sdk/react';
+import type { ChatMessage } from '@/lib/types';
 import {
   Sidebar,
   SidebarContent,
@@ -40,7 +43,14 @@ const sampleRecommendations: Recommendation[] = [
   },
 ];
 
-export function RecommendationsSidebar() {
+interface RecommendationsSidebarProps {
+  sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
+}
+
+export function RecommendationsSidebar({ sendMessage }: RecommendationsSidebarProps) {
+  const { id } = useParams();
+  const router = useRouter();
+  
   return (
     <Sidebar side="right" className="group-data-[side=right]:border-l-0 hidden md:flex">
       <SidebarHeader>
@@ -62,6 +72,16 @@ export function RecommendationsSidebar() {
                 <button
                   key={question}
                   className="text-sm text-left p-2 rounded-md bg-muted hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                  onClick={async () => {
+                    // URL 업데이트
+                    window.history.replaceState({}, '', `/chat/${id}`);
+
+                    // 메시지 전송
+                    sendMessage({
+                      role: 'user',
+                      parts: [{ type: 'text', text: question }],
+                    });
+                  }}
                 >
                   {question}
                 </button>
