@@ -173,7 +173,7 @@ export function Chat({
         
         {/* 3. 오른쪽 사이드바 영역 */}
         <div className="hidden md:block w-64">
-          <RecommendationsSidebar sendMessage={sendMessage} />
+          <RecommendationsSidebar sendMessage={sendMessage} messages={messages} />
         </div>
       </div>
 
