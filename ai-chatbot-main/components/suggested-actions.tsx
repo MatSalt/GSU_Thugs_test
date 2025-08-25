@@ -20,24 +20,24 @@ function PureSuggestedActions({
 }: SuggestedActionsProps) {
   const suggestedActions = [
     {
-      title: 'What are the advantages',
-      label: 'of using Next.js?',
-      action: 'What are the advantages of using Next.js?',
+      title: '최근 워런버핏 포트폴리오 변동 사항',
+      label: '유나이티드헬스 그룹 신규 매수!',
+      action: '워런 버핏(버크셔 해서웨이)의 가장 최근 포트폴리오 변동 내역은 무엇인가요?',
     },
     {
-      title: 'Write code to',
-      label: `demonstrate djikstra's algorithm`,
-      action: `Write code to demonstrate djikstra's algorithm`,
+      title: '시장 조정 가능성 발견',
+      label: `S&P 500의 선행 주가수익비율(P/E Ratio) 22배 돌파`,
+      action: `현재 S&P 500 지수는 역사적 평균과 비교했을 때 고평가 상태인가요?`,
     },
     {
-      title: 'Help me write an essay',
-      label: `about silicon valley`,
-      action: `Help me write an essay about silicon valley`,
+      title: '강릉에 가뭄 발생',
+      label: `드라이아이스 관련 주가 상승 가능성`,
+      action: `가뭄이 발생했을때 드라이아이스 주가가 오르는 이유를 설명해줘.`,
     },
     {
-      title: 'What is the weather',
-      label: 'in San Francisco?',
-      action: 'What is the weather in San Francisco?',
+      title: '금리가 인하되면 수혜를 받는 종목',
+      label: '증권사는 금리 인하로 인한 증시 활황의 직접적인 수혜',
+      action: '금리 인하 시기에 일반적으로 주가가 상승하는 대표적인 업종과 종목은 무엇인가요?',
     },
   ];
 
