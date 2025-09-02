@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { PuzzleIcon } from 'lucide-react';
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
@@ -59,6 +60,18 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <div className="mb-2 px-2">
+          <Link
+            href="/agents"
+            onClick={() => {
+              setOpenMobile(false);
+            }}
+            className="flex h-10 w-full items-center justify-start gap-3 rounded-lg px-3 py-2 text-sm text-zinc-500 transition-all hover:bg-accent hover:text-accent-foreground dark:text-zinc-400"
+          >
+            <PuzzleIcon className="h-4 w-4" />
+            <span>Agents</span>
+          </Link>
+        </div>
         <SidebarHistory user={user} />
       </SidebarContent>
       <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
