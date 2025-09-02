@@ -48,3 +48,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Demo project (A2A agent 등록 및 활용 기능)
+demo/
