@@ -94,6 +94,11 @@
 * **기본 모델**: OpenAI GPT-4
   * [모델 정보](https://platform.openai.com/docs/models)
 * **RAG 기능** - 실시간 정보 검색 및 생성 (추가 구현 필요)
+* **A2A (Agent-to-Agent) 프로토콜** - 다중 agent 간 통신 및 협업
+  * [A2A 공식 문서](https://google.github.io/A2A/)
+  * **AgentCard 표준** - agent 정보 및 기능 메타데이터 정의
+  * **멀티모달 통신** - 텍스트, 이미지, 데이터 등 다양한 형태의 정보 교환
+  * **실시간 스트리밍** - agent 간 비동기 통신 및 상태 업데이트
 
 ### 4.4. 데이터베이스
 * **SQLite 3.50.4** - 로컬 파일 기반 데이터베이스
