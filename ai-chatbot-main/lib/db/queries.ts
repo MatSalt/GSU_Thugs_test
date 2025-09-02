@@ -27,12 +27,14 @@ import {
   type DBMessage,
   type Chat,
   stream,
+  agents,
 } from './schema';
 import type { ArtifactKind } from '@/components/artifact';
 import { generateUUID } from '../utils';
 import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
+import { nanoid } from 'nanoid';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -535,4 +537,32 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
       'Failed to get stream ids by chat id',
     );
   }
+}
+
+// Agents
+export async function createAgent(
+  agentData: Omit<typeof agents.$inferInsert, 'id' | 'createdAt'>
+) {
+  const newAgent = await db
+    .insert(agents)
+    .values({
+      id: `agent_${nanoid()}`,
+      ...agentData
+    })
+    .returning()
+  return newAgent[0]
+}
+
+export async function getAgentsByUserId(userId: string) {
+  return await db.query.agents.findMany({
+    where: (a, { eq }) => eq(a.userId, userId),
+    orderBy: (a, { desc }) => desc(a.createdAt)
+  })
+}
+
+export async function deleteAgentById(id: string, userId: string) {
+  await db
+    .delete(agents)
+    .where(and(eq(agents.id, id), eq(agents.userId, userId)))
+  return { success: true }
 }

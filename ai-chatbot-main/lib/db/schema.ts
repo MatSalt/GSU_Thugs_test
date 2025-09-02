@@ -10,6 +10,9 @@ import {
   foreignKey,
   boolean,
 } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm'
+
+import { users } from './users'
 
 export const user = pgTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
@@ -168,3 +171,26 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+export const agents = pgTable('agents', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  url: text('url').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+
+export const agentRelations = relations(agents, ({ one }) => ({
+  user: one(user, {
+    fields: [agents.userId],
+    references: [user.id]
+  })
+}));
+
+// Add a new relation to the `user` table for agents
+export const userRelations = relations(user, ({ many }) => ({
+  agents: many(agents)
+}));
