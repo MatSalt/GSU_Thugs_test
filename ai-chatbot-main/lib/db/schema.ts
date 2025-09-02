@@ -12,8 +12,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm'
 
-import { users } from './users'
-
 export const user = pgTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
   email: varchar('email', { length: 64 }).notNull(),
@@ -172,8 +170,58 @@ export const stream = pgTable(
 
 export type Stream = InferSelectModel<typeof stream>;
 
+export const chatRelations = relations(chat, ({ one, many }) => ({
+  user: one(user, {
+    fields: [chat.userId],
+    references: [user.id]
+  }),
+  messages: many(message),
+  streams: many(stream)
+}));
+
+export const messageRelations = relations(message, ({ one, many }) => ({
+  chat: one(chat, {
+    fields: [message.chatId],
+    references: [chat.id]
+  }),
+  votes: many(vote)
+}));
+
+export const voteRelations = relations(vote, ({ one }) => ({
+  message: one(message, {
+    fields: [vote.messageId],
+    references: [message.id]
+  })
+}));
+
+export const documentRelations = relations(document, ({ one, many }) => ({
+  user: one(user, {
+    fields: [document.userId],
+    references: [user.id]
+  }),
+  suggestions: many(suggestion)
+}));
+
+export const suggestionRelations = relations(suggestion, ({ one }) => ({
+  user: one(user, {
+    fields: [suggestion.userId],
+    references: [user.id]
+  }),
+  document: one(document, {
+    fields: [suggestion.documentId, suggestion.documentCreatedAt],
+    references: [document.id, document.createdAt]
+  })
+}));
+
+export const streamRelations = relations(stream, ({ one }) => ({
+  chat: one(chat, {
+    fields: [stream.chatId],
+    references: [chat.id]
+  })
+}));
+
 export const agents = pgTable('agents', {
-  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  id: uuid('id').primaryKey().notNull(),
   userId: uuid('user_id')
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
@@ -192,5 +240,8 @@ export const agentRelations = relations(agents, ({ one }) => ({
 
 // Add a new relation to the `user` table for agents
 export const userRelations = relations(user, ({ many }) => ({
-  agents: many(agents)
+  agents: many(agents),
+  chats: many(chat),
+  documents: many(document),
+  suggestions: many(suggestion)
 }));
