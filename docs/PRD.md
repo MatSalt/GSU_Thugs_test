@@ -134,6 +134,17 @@
 * **POST `/api/recommendations/questions`** - 사용자 프로필 기반 질문 추천
 * **GET `/api/recommendations/categories`** - 투자 카테고리별 질문 목록
 
+### 5.5. A2A Agent 관리 API
+* **POST `/api/agents/register`** - 새로운 A2A agent 등록
+  * Request Body: `{ "url": "localhost:10000" }`
+  * Response: `{ "success": true, "agent_id": "uuid" }`
+* **GET `/api/agents/list`** - 등록된 A2A agent 목록 조회
+  * Response: `{ "agents": [AgentCard] }`
+* **DELETE `/api/agents/[id]`** - 등록된 A2A agent 제거
+  * Response: `{ "success": true }`
+* **GET `/api/agents/[id]/info`** - 특정 agent의 상세 정보 조회
+  * Response: `{ "agent": AgentCard }`
+
 ---
 
 ## 6. 개발 단계
