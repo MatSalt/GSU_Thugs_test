@@ -1,0 +1,89 @@
+네, `demo/ui` 프로젝트의 프론트엔드 구현을 면밀히 분석하고, 이를 `ai-chatbot-main` 프로젝트에 최적의 방식으로 적용할 수 있는 구체적인 실행 계획을 제시해 드리겠습니다.
+
+`demo/ui`는 Python 기반의 Mesop 프레임워크를 사용했지만, 핵심적인 사용자 경험(UX)과 컴포넌트 구조는 React 기반인 `ai-chatbot-main`에 매우 효과적으로 적용할 수 있습니다.
+
+---
+
+### **`demo/ui` 프론트엔드 핵심 분석**
+
+1.  **페이지 구조:** `agent_list.py`라는 단일 페이지에서 모든 기능이 이루어집니다.
+2.  **핵심 컴포넌트:**
+    *   **Agent 목록 테이블 (`components/agent_list.py`):** 등록된 에이전트들을 표 형태로 보여줍니다.
+    *   **등록 버튼:** 새 에이전트를 추가하는 과정을 시작합니다.
+    *   **등록 다이얼로그:** Modal 창 형태로, URL 입력 -> 정보 확인 -> 최종 저장의 단계를 거칩니다.
+3.  **사용자 경험 흐름(UX Flow):**
+    *   사용자는 목록에서 등록된 에이전트를 확인하고 삭제할 수 있습니다.
+    *   새 에이전트 등록 시, URL을 입력하면 서버에서 해당 에이전트의 메타 정보(`AgentCard`)를 가져와 사용자에게 미리 보여주고, 사용자가 확인 후 최종 등록하는 안전장치가 있습니다.
+
+---
+
+### **`ai-chatbot-main` 프론트엔드 적용 방안**
+
+`demo/ui`의 장점을 `Next.js`, `React`, `shadcn/ui`, `SWR` 그리고 `Tailwind CSS`를 사용하는 `ai-chatbot-main`의 기술 스택에 맞게 재구성하여 적용하는 계획입니다.
+
+#### **1단계: 페이지 및 라우팅 설정 (이슈 #10)**
+
+가장 먼저 사용자가 A2A Agent 관리 기능에 접근할 수 있는 경로와 기본 화면을 만듭니다.
+
+1.  **새 페이지 생성:**
+    *   **파일:** `ai-chatbot-main/app/(chat)/agents/page.tsx`
+    *   **내용:** 이 페이지는 Agent 관리 기능의 메인 진입점이 됩니다. 기본적으로 페이지 제목("A2A Agent Management")과 같은 헤더 정보, 그리고 에이전트 목록이 표시될 영역을 포함하는 레이아웃을 구성합니다. `'use client'` 지시어를 사용하여 클라이언트 컴포넌트로 만듭니다.
+
+2.  **사이드바에 메뉴 추가:**
+    *   **파일:** `ai-chatbot-main/components/app-sidebar.tsx`
+    *   **내용:** 기존의 'New Chat' 버튼이나 채팅 히스토리 목록처럼, 'Agents'라는 새 메뉴를 추가합니다. `lucide-react`의 아이콘(예: `PuzzleIcon` 또는 `Cog`)과 함께 `/agents` 경로로 연결되는 `<Link>` 태그를 사용합니다.
+
+#### **2단계: 에이전트 목록 UI 구현 (이슈 #10)**
+
+백엔드 API에서 받아온 에이전트 목록을 사용자에게 보여주는 UI를 구현합니다.
+
+1.  **데이터 Fetching:**
+    *   **파일:** `ai-chatbot-main/app/(chat)/agents/page.tsx`
+    *   **내용:** 데이터 페칭 라이브러리인 `SWR`을 사용하여 `GET /api/agents` API를 호출합니다.
+        ```tsx
+        import useSWR from 'swr';
+        const { data: agents, error, isLoading } = useSWR('/api/agents', fetcher);
+        ```
+    *   `isLoading` 상태일 때는 스켈레톤 UI(`shadcn/ui`의 `Skeleton`)를 보여주고, `error`가 발생하면 에러 메시지를 표시합니다.
+
+2.  **목록 컴포넌트 생성:**
+    *   **파일:** `ai-chatbot-main/components/agent-list.tsx` (신규 생성)
+    *   **내용:** `shadcn/ui`의 `Table` 컴포넌트를 사용하여 `page.tsx`로부터 받은 `agents` 배열을 표 형태로 렌더링합니다.
+    *   **테이블 컬럼:** `Name`, `Description`, `URL`, `Actions` (삭제 버튼용) 등을 포함합니다.
+    *   각 행의 'Actions' 컬럼에는 `TrashIcon`을 가진 `Button` 컴포넌트를配置합니다. (이 버튼의 실제 기능은 4단계에서 구현합니다.)
+
+#### **3단계: 에이전트 등록 다이얼로그 구현 (이슈 #11)**
+
+`demo/ui`의 핵심 UX인 '정보 확인 후 등록' 흐름을 구현합니다.
+
+1.  **다이얼로그 컴포넌트 생성:**
+    *   **파일:** `ai-chatbot-main/components/agent-registration-dialog.tsx` (신규 생성)
+    *   **내용:** `shadcn/ui`의 `Dialog` 컴포넌트를 기반으로 UI를 구성합니다.
+        *   `DialogTrigger`: `agents/page.tsx`에 위치할 "Add New Agent" `Button`.
+        *   `DialogContent`: URL을 입력받을 `Input`, 정보 확인용 `Button`("Fetch Agent Info"), 조회된 정보가 표시될 영역, 그리고 최종 `DialogFooter`의 'Cancel'과 'Save' `Button`을 포함합니다.
+
+2.  **상태 관리 및 로직 구현:**
+    *   `useState`를 사용하여 URL 입력값, 로딩 상태, 조회된 AgentCard 정보, 에러 메시지 등을 관리합니다.
+    *   **"Fetch Agent Info" 버튼 로직:**
+        *   클릭 시, 입력된 URL의 유효성을 검사합니다.
+        *   내부적으로 `fetch(url)`를 호출하여 `AgentCard` JSON을 직접 가져옵니다. (백엔드의 `getAgentCard` 함수와 유사한 로직)
+        *   성공 시, 받아온 `name`과 `description`을 상태에 저장하고 UI에 표시합니다. 'Save' 버튼을 활성화합니다.
+        *   실패 시, 에러 메시지를 UI에 표시합니다.
+    *   **"Save" 버튼 로직:**
+        *   클릭 시, `POST /api/agents` API에 `{ url: "..." }` 데이터를 담아 요청을 보냅니다.
+        *   요청이 성공하면, `SWR`의 `mutate('/api/agents')` 함수를 호출하여 부모 페이지의 에이전트 목록을 자동으로 갱신시키고 다이얼로그를 닫습니다.
+        *   실패하면(예: 이미 등록된 URL), 다이얼로그에 에러 메시지를 표시합니다.
+
+#### **4단계: 에이전트 삭제 기능 구현**
+
+목록에서 에이전트를 제거하는 기능을 완성합니다.
+
+1.  **삭제 확인 UI:**
+    *   **파일:** `ai-chatbot-main/components/agent-list.tsx`
+    *   **내용:** 각 행의 '삭제' 버튼 클릭 시, 바로 삭제하지 않고 `shadcn/ui`의 `AlertDialog`를 사용하여 "정말 이 에이전트를 삭제하시겠습니까?"와 같은 확인 절차를 거치도록 합니다.
+
+2.  **삭제 로직:**
+    *   사용자가 `AlertDialog`에서 '삭제'를 최종 확인하면, `DELETE /api/agents/[id]` API를 호출합니다.
+    *   요청이 성공하면, 등록 시와 마찬가지로 `mutate('/api/agents')`를 호출하여 목록을 화면에서 즉시 갱신합니다.
+
+이 계획대로 진행하면, `demo/ui`의 검증된 UX를 그대로 유지하면서도 `ai-chatbot-main`의 현대적인 기술 스택과 디자인 시스템을 활용하여 훨씬 더 견고하고 세련된 프론트엔드를 구현할 수 있습니다.

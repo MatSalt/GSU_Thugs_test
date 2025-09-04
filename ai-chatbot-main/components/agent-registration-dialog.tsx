@@ -13,14 +13,14 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PlusIcon } from './icons'
+import { PlusIcon, LoaderIcon } from './icons'
 import { toast } from './toast'
 import { mutate } from 'swr'
-import { LoaderIcon } from './icons'
 
 type AgentCard = {
   name: string
   description: string
+  api_url: string
 }
 
 export function AgentRegistrationDialog() {
@@ -42,22 +42,22 @@ export function AgentRegistrationDialog() {
   const handleFetchCard = async () => {
     setError(null)
     setAgentCard(null)
-    if (!url || !url.startsWith('http')) {
-      setError('Please enter a valid URL.')
+    if (!url) {
+      setError('Please enter a URL.')
       return
     }
     setIsFetchingCard(true)
     try {
-      const res = await fetch(url)
+      const res = await fetch('/api/agents/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const result = await res.json()
       if (!res.ok) {
-        throw new Error('Could not fetch agent information from the URL.')
+        throw new Error(result.error || 'Could not fetch agent information from the URL.')
       }
-      const card = await res.json()
-      if (card.name && card.description && card.api_url) {
-        setAgentCard({ name: card.name, description: card.description })
-      } else {
-        throw new Error('The URL did not return a valid AgentCard.')
-      }
+      setAgentCard(result)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -66,14 +66,18 @@ export function AgentRegistrationDialog() {
   }
 
   const handleSave = async () => {
-    if (!url) return
+    if (!url || !agentCard) return
     setIsSaving(true)
     setError(null)
     try {
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({
+          url,
+          name: agentCard.name,
+          description: agentCard.description,
+        }),
       })
       const result = await res.json()
       if (!res.ok) {
@@ -101,8 +105,8 @@ export function AgentRegistrationDialog() {
     >
       <DialogTrigger asChild>
         <Button>
-          <PlusIcon className="mr-2 h-4 w-4" />
-          Add New Agent
+          <PlusIcon size={16} />
+          <span className="ml-2">Add New Agent</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
@@ -122,13 +126,13 @@ export function AgentRegistrationDialog() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="col-span-3"
-              placeholder="https://example-agent.com/agent_card.json"
+              placeholder="http://localhost:10000 or https://example-agent.com"
             />
           </div>
           <div className="flex justify-end">
             <Button onClick={handleFetchCard} disabled={isFetchingCard || !url}>
-              {isFetchingCard && <LoaderIcon className="mr-2 animate-spin" />}
-              Fetch Agent Info
+              {isFetchingCard && <LoaderIcon size={16} />}
+              <span className={isFetchingCard ? "ml-2" : ""}>Fetch Agent Info</span>
             </Button>
           </div>
           {agentCard && (
@@ -142,8 +146,8 @@ export function AgentRegistrationDialog() {
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={!agentCard || isSaving}>
-            {isSaving && <LoaderIcon className="mr-2 animate-spin" />}
-            Save
+            {isSaving && <LoaderIcon size={16} />}
+            <span className={isSaving ? "ml-2" : ""}>Register Agent</span>
           </Button>
         </DialogFooter>
       </DialogContent>

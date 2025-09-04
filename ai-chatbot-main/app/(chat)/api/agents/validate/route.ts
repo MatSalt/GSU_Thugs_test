@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/app/(auth)/auth'
-import { createAgent, getAgentsByUserId } from '@/lib/db/queries'
-import { nanoid } from 'nanoid'
 import { z } from 'zod'
 
 // A2A Agent Card well-known path constant (same as a2a-sdk)
 const AGENT_CARD_WELL_KNOWN_PATH = '/.well-known/agent-card.json'
-
-export const GET = auth(async (req) => {
-  if (!req.auth?.user?.id) {
-    return new Response('Unauthorized', { status: 401 })
-  }
-  const userId = req.auth.user.id
-  const agents = await getAgentsByUserId(userId)
-  return NextResponse.json(agents)
-})
 
 // A simple AgentCard parser based on the demo project
 async function getAgentCard(url: string) {
@@ -40,7 +29,8 @@ async function getAgentCard(url: string) {
     if (card.name && card.description && card.api_url) {
       return {
         name: card.name,
-        description: card.description
+        description: card.description,
+        api_url: card.api_url
       }
     }
     return null
@@ -50,20 +40,17 @@ async function getAgentCard(url: string) {
   }
 }
 
-const PostSchema = z.object({
-  url: z.string().min(1, 'URL is required'),
-  name: z.string().min(1, 'Agent name is required'),
-  description: z.string().optional()
+const ValidateSchema = z.object({
+  url: z.string().min(1, 'URL is required')
 })
 
 export const POST = auth(async (req) => {
   if (!req.auth?.user?.id) {
     return new Response('Unauthorized', { status: 401 })
   }
-  const userId = req.auth.user.id
 
   const body = await req.json()
-  const parsed = PostSchema.safeParse(body)
+  const parsed = ValidateSchema.safeParse(body)
 
   if (!parsed.success) {
     return NextResponse.json({ 
@@ -72,21 +59,24 @@ export const POST = auth(async (req) => {
     }, { status: 400 })
   }
 
-  const { url, name, description } = parsed.data
+  const { url } = parsed.data
 
-  try {
-    const newAgent = await createAgent({
-      userId,
-      url,
-      name,
-      description: description || null
-    })
-    return NextResponse.json(newAgent, { status: 201 })
-  } catch (error) {
-    // Handle potential unique constraint violation for the URL
+  // Validate URL format (allow localhost and basic URLs)
+  const isValidUrl = url.includes('localhost') || url.startsWith('http://') || url.startsWith('https://')
+  if (!isValidUrl) {
+    return NextResponse.json({
+      error: 'Please enter a valid URL (e.g., http://localhost:10000 or https://example.com)'
+    }, { status: 400 })
+  }
+
+  const agentCard = await getAgentCard(url)
+
+  if (!agentCard) {
     return NextResponse.json(
-      { error: 'This agent URL is already registered.' },
-      { status: 409 }
+      { error: 'Failed to retrieve a valid AgentCard from the URL. Please check if the agent is running and accessible.' },
+      { status: 400 }
     )
   }
+
+  return NextResponse.json(agentCard, { status: 200 })
 })
