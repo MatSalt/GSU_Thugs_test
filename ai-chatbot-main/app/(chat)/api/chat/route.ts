@@ -37,8 +37,14 @@ import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { google } from '@ai-sdk/google';
+import { sendA2AMessage } from '@/lib/a2a-client';
 
 export const maxDuration = 60;
+
+async function getMessageText(message: ChatMessage): Promise<string> {
+  const textParts = message.parts.filter(part => part.type === 'text');
+  return textParts.map(part => part.text).join(' ');
+}
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -121,17 +127,20 @@ export async function POST(request: Request) {
       }
     }
 
-    const messagesFromDb = await getMessagesByChatId({ id });
-    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+    // const messagesFromDb = await getMessagesByChatId({ id });
+    // const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
-    const { longitude, latitude, city, country } = geolocation(request);
+    // const { longitude, latitude, city, country } = geolocation(request);
 
-    const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
-    };
+    // const requestHints: RequestHints = {
+    //   longitude,
+    //   latitude,
+    //   city,
+    //   country,
+    // };
+
+    ///////////////////////////////////
+    const messageText = await getMessageText(message);
 
     await saveMessages({
       messages: [
@@ -146,84 +155,149 @@ export async function POST(request: Request) {
       ],
     });
 
-    const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
 
-    const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
-        const result = streamText({
-          model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
-          messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'google_search',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
-          experimental_transform: smoothStream({ chunking: 'word' }),
-          tools: {
-            google_search: google.tools.googleSearch({}),
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({
-              session,
-              dataStream,
-            }),
-          },
-          experimental_telemetry: {
-            isEnabled: isProductionEnvironment,
-            functionId: 'stream-text',
-          },
-        });
+    try {
+      console.log('A2A 에이전트로 메시지 전송: ', messageText);
+      const a2aResponse = await sendA2AMessage(messageText);
 
-        result.consumeStream();
-
-        dataStream.merge(
-          result.toUIMessageStream({
-            sendReasoning: true,
-          }),
-        );
-      },
-      generateId: generateUUID,
-      onFinish: async ({ messages }) => {
-        await saveMessages({
-          messages: messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            parts: message.parts,
-            createdAt: new Date(),
-            attachments: [],
+      // A2A 응답을 채팅 히스토리에 저장
+      await saveMessages({
+        messages: [
+          {
             chatId: id,
-          })),
-        });
-      },
-      onError: () => {
-        return 'Oops, an error occurred!';
-      },
-    });
+            id: generateUUID(),
+            role: 'assistant',
+            parts: [{ type: 'text', text: a2aResponse }],
+            attachments: [],
+            createdAt: new Date(),
+          }
+        ],
+      });
 
-    const streamContext = getStreamContext();
+      // 성공 응답 반환 (기존 스트리밍 형태와 호환)
+      return Response.json({
+        success: true,
+        message: 'A2A message processed successfully'
+      });
 
-    if (streamContext) {
-      return new Response(
-        await streamContext.resumableStream(streamId, () =>
-          stream.pipeThrough(new JsonToSseTransformStream()),
-        ),
-      );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+    } catch (a2aError) {
+      console.error('A2A 통신 실패:', a2aError);
+
+      const errorMessage = a2aError instanceof Error
+        ? a2aError.message
+        : 'A2A 에이전트와 통신할 수 없습니다.';
+
+      await saveMessages({
+        messages: [
+          {
+            chatId: id,
+            id: generateUUID(),
+            role: 'assistant',
+            parts: [{ type: 'text', text: errorMessage }],
+            attachments: [],
+            createdAt: new Date(),
+          }
+        ],
+      });
+
+      return Response.json({
+        success: false,
+        error: 'A2A communication failed',
+        message: errorMessage
+      });
     }
+
   } catch (error) {
+    console.error('Chat API 오류:', error);
+
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
+
+    return new ChatSDKError('bad_request:api').toResponse();
   }
 }
+
+///////////////////////////////////
+
+// const streamId = generateUUID();
+// await createStreamId({ streamId, chatId: id });
+
+// const stream = createUIMessageStream({
+//   execute: ({ writer: dataStream }) => {
+//     const result = streamText({
+//       model: myProvider.languageModel(selectedChatModel),
+//       system: systemPrompt({ selectedChatModel, requestHints }),
+//       messages: convertToModelMessages(uiMessages),
+//       stopWhen: stepCountIs(5),
+//       experimental_activeTools:
+//         selectedChatModel === 'chat-model-reasoning'
+//           ? []
+//           : [
+//             'google_search',
+//             'createDocument',
+//             'updateDocument',
+//             'requestSuggestions',
+//           ],
+//       experimental_transform: smoothStream({ chunking: 'word' }),
+//       tools: {
+//         google_search: google.tools.googleSearch({}),
+//         createDocument: createDocument({ session, dataStream }),
+//         updateDocument: updateDocument({ session, dataStream }),
+//         requestSuggestions: requestSuggestions({
+//           session,
+//           dataStream,
+//         }),
+//       },
+//       experimental_telemetry: {
+//         isEnabled: isProductionEnvironment,
+//         functionId: 'stream-text',
+//       },
+//     });
+
+//     result.consumeStream();
+
+//     dataStream.merge(
+//       result.toUIMessageStream({
+//         sendReasoning: true,
+//       }),
+//     );
+//   },
+//   generateId: generateUUID,
+//   onFinish: async ({ messages }) => {
+//     await saveMessages({
+//       messages: messages.map((message) => ({
+//         id: message.id,
+//         role: message.role,
+//         parts: message.parts,
+//         createdAt: new Date(),
+//         attachments: [],
+//         chatId: id,
+//       })),
+//     });
+//   },
+//   onError: () => {
+//     return 'Oops, an error occurred!';
+//   },
+// });
+
+// const streamContext = getStreamContext();
+
+// if (streamContext) {
+//   return new Response(
+//     await streamContext.resumableStream(streamId, () =>
+//       stream.pipeThrough(new JsonToSseTransformStream()),
+//     ),
+//   );
+// } else {
+//   return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+// }
+// } catch (error) {
+//   if (error instanceof ChatSDKError) {
+//     return error.toResponse();
+//   }
+// }
+// }
 
 export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);

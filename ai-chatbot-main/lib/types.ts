@@ -55,3 +55,9 @@ export interface Attachment {
   url: string;
   contentType: string;
 }
+
+export interface A2AMessage {
+  text: string;
+  agentUrl: string;
+  isA2AResponse?: boolean;
+}
