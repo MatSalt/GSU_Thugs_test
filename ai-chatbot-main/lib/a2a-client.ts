@@ -44,7 +44,7 @@ export async function sendA2AMessage(userMessage: string) : Promise<string> {
                 if (artifact.parts && Array.isArray(artifact.parts) && artifact.parts.length > 0) {
                     const responseText = artifact.parts[0]?.text;
                     if (responseText) {
-                        console.log("artifacts에서 응답 추출:", responseText);
+                        // console.log("artifacts에서 응답 추출:", responseText);
                         return responseText;
                     }
                 }
